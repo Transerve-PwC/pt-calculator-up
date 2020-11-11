@@ -55,33 +55,33 @@ public class PropertyDetail   {
         private OwnerInfo citizenInfo;
 
 
-        public enum SourceEnum {
-    MUNICIPAL_RECORDS("MUNICIPAL_RECORDS"),
-    
-    FIELD_SURVEY("FIELD_SURVEY");
+    public enum SourceEnum {
+        MUNICIPAL_RECORDS("MUNICIPAL_RECORDS"),
+        FIELD_SURVEY("FIELD_SURVEY"),
+        DATA_MIGRATION("DATA_MIGRATION");
 
-    private String value;
+        private String value;
 
-    SourceEnum(String value) {
-      this.value = value;
-    }
-
-    @Override
-    @JsonValue
-    public String toString() {
-      return String.valueOf(value);
-    }
-
-    @JsonCreator
-    public static SourceEnum fromValue(String text) {
-      for (SourceEnum b : SourceEnum.values()) {
-        if (String.valueOf(b.value).equals(text)) {
-          return b;
+        SourceEnum(String value) {
+            this.value = value;
         }
-      }
-      return null;
+
+        @Override
+        @JsonValue
+        public String toString() {
+            return String.valueOf(value);
+        }
+
+        @JsonCreator
+        public static SourceEnum fromValue(String text) {
+            for (SourceEnum b : SourceEnum.values()) {
+                if (String.valueOf(b.value).equals(text)) {
+                    return b;
+                }
+            }
+            return null;
+        }
     }
-  }
 
         @JsonProperty("source")
         private SourceEnum source;
@@ -163,13 +163,13 @@ public class PropertyDetail   {
    */
   public enum ChannelEnum {
     SYSTEM("SYSTEM"),
-    
+
     CFC_COUNTER("CFC_COUNTER"),
-    
+
     CITIZEN("CITIZEN"),
-    
+
     DATA_ENTRY("DATA_ENTRY"),
-    
+
     MIGRATION("MIGRATION");
 
     private String value;

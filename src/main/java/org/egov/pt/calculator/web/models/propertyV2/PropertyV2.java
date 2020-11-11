@@ -24,6 +24,9 @@ import java.util.List;
 @AllArgsConstructor
 public class PropertyV2 extends PropertyInfoV2 {
 
+    @JsonProperty("id")
+    private String id;
+
 	@JsonProperty("acknowldgementNumber")
 	private String acknowldgementNumber;
 
@@ -42,7 +45,7 @@ public class PropertyV2 extends PropertyInfoV2 {
 
 	@JsonProperty("creationReason")
 	private String creationReason;
-	
+
 	@JsonProperty("usageCategory")
 	private String usageCategory;
 
@@ -74,7 +77,7 @@ public class PropertyV2 extends PropertyInfoV2 {
 
 	@JsonProperty("additionalDetails")
 	private Object additionalDetails;
-	
+
 	@JsonProperty("auditDetails")
 	private AuditDetails auditDetails;
 
@@ -115,7 +118,7 @@ public class PropertyV2 extends PropertyInfoV2 {
 			this.owners.add(ownersItem);
 		return this;
 	}
-	
+
 	public PropertyV2 addUnitsItem(UnitV2 unit) {
 		if (this.units == null) {
 			this.units = new ArrayList<>();

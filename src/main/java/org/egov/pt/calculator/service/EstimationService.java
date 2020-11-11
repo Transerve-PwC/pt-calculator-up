@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import static org.egov.pt.calculator.constants.TaxHeadConstants.PT_ADVANCE_CARRYFORWARD;
 import static org.egov.pt.calculator.constants.TaxHeadConstants.*;
 import static org.egov.pt.calculator.util.CalculatorConstants.*;
+import static org.egov.pt.calculator.web.models.property.PropertyDetail.ChannelEnum.MIGRATION;
 
 @Service
 @Slf4j
@@ -154,8 +155,13 @@ public class EstimationService {
         PropertyDetail detail = property.getPropertyDetails().get(0);
         String tenantId = null != property.getTenantId() ? property.getTenantId() : criteria.getTenantId();
 
-        Optional<PropertyPayment> propertyPayment = propertyPaymentRepository.findByPropertyIdAndFinancialYear(
-            property.getPropertyId(), detail.getFinancialYear());
+        Optional<PropertyPayment> propertyPayment;
+        if (detail.getChannel() == MIGRATION) {
+            propertyPayment = propertyPaymentRepository.findByPropertyId(property.getId());
+        } else {
+            //Create payment table entry
+            propertyPayment = Optional.empty();
+        }
 
         List<TaxHeadEstimate> estimates;
         if (propertyPayment.isPresent()) {

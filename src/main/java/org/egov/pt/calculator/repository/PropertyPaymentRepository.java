@@ -10,4 +10,6 @@ import java.util.Optional;
 public interface PropertyPaymentRepository extends JpaRepository<PropertyPayment, Long> {
 
     Optional<PropertyPayment> findByPropertyIdAndFinancialYear(String propertyId, String financialYear);
+
+    Optional<PropertyPayment> findByPropertyId(String propertyId);
 }

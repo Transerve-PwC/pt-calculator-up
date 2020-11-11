@@ -67,6 +67,7 @@ public class TranslationService {
         localityMap.put("code",property.getAddress().getLocality().getCode());
         addressMap.put("locality",localityMap);
 
+        propertyMap.put("id", property.getId());
         propertyMap.put("address", addressMap);
         propertyMap.put("propertyId",property.getPropertyId());
         propertyMap.put("tenantId", property.getTenantId());
@@ -95,6 +96,7 @@ public class TranslationService {
             subOwnershipCategory = ownershipCategoryMasterData[1];
 
 
+        propertyDetail.put("channel", property.getChannel());
         propertyDetail.put("noOfFloors", property.getNoOfFloors());
         propertyDetail.put("landArea", property.getLandArea());
         propertyDetail.put("buildUpArea", property.getSuperBuiltUpArea());

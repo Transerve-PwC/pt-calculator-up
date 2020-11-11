@@ -31,6 +31,8 @@ import lombok.ToString;
 @NoArgsConstructor
 public class Property extends PropertyInfo{
 
+    @JsonProperty("id")
+    private String id;
 
 	@JsonProperty("auditDetails")
 	private AuditDetails auditDetails;
@@ -92,20 +94,20 @@ public class Property extends PropertyInfo{
 
 		private CreationReasonEnum creationReason;
 		private Long occupancyDate;
-		
+
 		@NotNull
 		@Valid
 		private List<PropertyDetail>  propertyDetails;
 		private AuditDetails auditDetails;
 
 		private String propertyId;
-		
+
 		@NotEmpty
 		private String tenantId;
 		private String acknowldgementNumber;
 		private String oldPropertyId;
 		private StatusEnum status;
-		
+
 		@NotNull
 		@Valid
 		private Address address;
