@@ -158,6 +158,8 @@ public class EstimationService {
         Optional<PropertyPayment> propertyPayment;
         if (detail.getChannel() == MIGRATION) {
             propertyPayment = propertyPaymentRepository.findByPropertyId(property.getId());
+            criteria.setFromDate(1554123601000l);
+            criteria.setToDate(1585746001000l);
         } else {
             //Create payment table entry
             propertyPayment = Optional.empty();

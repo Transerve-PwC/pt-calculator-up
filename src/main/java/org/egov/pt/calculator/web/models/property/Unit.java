@@ -40,7 +40,7 @@ public class Unit   {
         @JsonProperty("unitType")
         private String unitType;
 
-        @NotNull
+//        @NotNull
         @JsonProperty("unitArea")
         private Float unitArea;
 
