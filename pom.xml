@@ -2,7 +2,7 @@
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.egov</groupId>
-	<artifactId>pt-calculator-up</artifactId>
+	<artifactId>pt-calculator-v2</artifactId>
 	<packaging>jar</packaging>
 	<name>egov-pt-calculator</name>
 	<version>1.1.1-SNAPSHOT</version>
