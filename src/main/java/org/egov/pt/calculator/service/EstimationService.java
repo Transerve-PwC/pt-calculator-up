@@ -155,10 +155,10 @@ public class EstimationService {
         PropertyDetail detail = property.getPropertyDetails().get(0);
         String tenantId = null != property.getTenantId() ? property.getTenantId() : criteria.getTenantId();
         Optional<PropertyPayment> propertyPayment;
+        enrichmentService.enrichDemandPeriod(criteria, detail.getFinancialYear(), masterMap);
+
         if (detail.getChannel() == MIGRATION) {
             propertyPayment = propertyPaymentRepository.findByPropertyId(property.getId());
-            criteria.setFromDate(1554076799000l);
-            criteria.setToDate(1585679399000l);
         } else {
             //Create payment table entry
             propertyPayment = Optional.empty();
