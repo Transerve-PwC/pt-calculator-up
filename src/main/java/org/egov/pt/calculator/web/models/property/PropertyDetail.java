@@ -121,6 +121,12 @@ public class PropertyDetail   {
 
         @JsonProperty("propertySubType")
         private String propertySubType;
+        
+        @JsonProperty("constructionYear")
+    	private String constructionYear;
+    	
+    	@JsonProperty("roadWidth")
+    	private String roadWidth;
 
         @JsonProperty("assessmentNumber")
         private String assessmentNumber;

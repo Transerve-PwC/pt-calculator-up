@@ -6,6 +6,8 @@ import net.minidev.json.JSONArray;
 import org.egov.common.contract.request.RequestInfo;
 import org.egov.common.contract.request.User;
 import org.egov.common.contract.response.ResponseInfo;
+import org.egov.pt.calculator.enums.TaxExemption;
+import org.egov.pt.calculator.enums.TaxRateMultipliers;
 import org.egov.pt.calculator.model.PropertyPayment;
 import org.egov.pt.calculator.repository.PropertyPaymentRepository;
 import org.egov.pt.calculator.repository.Repository;
@@ -26,6 +28,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.Year;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -57,7 +60,7 @@ public class EstimationService {
 	CalculationValidator calcValidator;
 
 	@Autowired
-    private EnrichmentService enrichmentService;
+	private EnrichmentService enrichmentService;
 
 	@Autowired
 	private AssessmentService assessmentService;
@@ -78,13 +81,26 @@ public class EstimationService {
 	private ObjectMapper mapper;
 
 	@Autowired
-    private PropertyPaymentRepository propertyPaymentRepository;
+	private PropertyPaymentRepository propertyPaymentRepository;
 
+	@Autowired
+	private Cachebaleservice cachebaleservice ;
+
+
+
+	private final String  ROADWIDTH_VACANT_LAND = "vacant_land" ;
+	private final String  VACANT =  "VACANT" ;
+	private final String CATEGORY_TENANT_ID = "up" ;
+	private final String  RESIDENTIAL    = "RESIDENTIAL" ;
+	private final String  NONRESIDENTIAL = "NONRESIDENTIAL" ;
+	private final String  MIX =  "MIX" ;
+	private final String  RENTED =  "Rented" ;
 
 
 	@Value("${customization.pbfirecesslogic:false}")
 	Boolean usePBFirecessLogic;
 
+	
 
 
 	/**
@@ -93,7 +109,7 @@ public class EstimationService {
 	 * @return Map of assessment number to Calculation
 	 */
 	public Map<String, Calculation> calculateAndCreateDemand(CalculationReq calculationReq){
-	//	assessmentService.enrichAssessment(calculationReq);
+		//	assessmentService.enrichAssessment(calculationReq);
 		Map<String,Calculation> res = demandService.generateDemands(calculationReq);
 		return res;
 	}
@@ -130,15 +146,15 @@ public class EstimationService {
 	 * @param request incoming calculation request containing the criteria.
 	 * @return CalculationRes calculation object containing all the tax for the given criteria.
 	 */
-    public CalculationRes getTaxCalculation(CalculationReq request) {
+	public CalculationRes getTaxCalculation(CalculationReq request) {
 
-        CalculationCriteria criteria = request.getCalculationCriteria().get(0);
-        Property property = criteria.getProperty();
-        PropertyDetail detail = property.getPropertyDetails().get(0);
-        calcValidator.validatePropertyForCalculation(detail);
-        Map<String,Object> masterMap = mDataService.getMasterMap(request);
-        return new CalculationRes(new ResponseInfo(), Collections.singletonList(getCalculation(request.getRequestInfo(), criteria, masterMap)));
-    }
+		CalculationCriteria criteria = request.getCalculationCriteria().get(0);
+		Property property = criteria.getProperty();
+		PropertyDetail detail = property.getPropertyDetails().get(0);
+		calcValidator.validatePropertyForCalculation(detail);
+		Map<String,Object> masterMap = mDataService.getMasterMap(request);
+		return new CalculationRes(new ResponseInfo(), Collections.singletonList(getCalculation(request.getRequestInfo(), criteria, masterMap)));
+	}
 
 	/**
 	 * Prepares Calculation Response based on the provided TaxHeadEstimate List
@@ -149,27 +165,27 @@ public class EstimationService {
 	 * @param requestInfo request info from incoming request.
 	 * @return Calculation object constructed based on the resulting tax amount and other applicables(rebate/penalty)
 	 */
-    private Calculation getCalculation(RequestInfo requestInfo, CalculationCriteria criteria,Map<String,Object> masterMap) {
+	private Calculation getCalculation(RequestInfo requestInfo, CalculationCriteria criteria,Map<String,Object> masterMap) {
 
-        Property property = criteria.getProperty();
-        PropertyDetail detail = property.getPropertyDetails().get(0);
-        String tenantId = null != property.getTenantId() ? property.getTenantId() : criteria.getTenantId();
-        Optional<PropertyPayment> propertyPayment;
-        enrichmentService.enrichDemandPeriod(criteria, detail.getFinancialYear(), masterMap);
+		Property property = criteria.getProperty();
+		PropertyDetail detail = property.getPropertyDetails().get(0);
+		String tenantId = null != property.getTenantId() ? property.getTenantId() : criteria.getTenantId();
+		Optional<PropertyPayment> propertyPayment;
+		enrichmentService.enrichDemandPeriod(criteria, detail.getFinancialYear(), masterMap);
 
-        if (detail.getChannel() == MIGRATION) {
-            propertyPayment = propertyPaymentRepository.findByPropertyId(property.getId());
-        } else {
-            //Create payment table entry
-            propertyPayment = Optional.empty();
-        }
+		if (detail.getChannel() == MIGRATION) {
+			propertyPayment = propertyPaymentRepository.findByPropertyId(property.getId());
+		} else {
+			//Create payment table entry
+			propertyPayment = calculateAllTaxes(property , requestInfo  ); 
+		}
 
-        List<TaxHeadEstimate> estimates;
-        if (propertyPayment.isPresent()) {
-            estimates = getTaxHeadEstimateForPayment(propertyPayment.get());
-        } else {
-            estimates = new ArrayList<>();
-        }
+		List<TaxHeadEstimate> estimates;
+		if (propertyPayment.isPresent()) {
+			estimates = getTaxHeadEstimateForPayment(propertyPayment.get());
+		} else {
+			estimates = new ArrayList<>();
+		}
 		Map<String, Category> taxHeadCategoryMap = ((List<TaxHeadMaster>)masterMap.get(TAXHEADMASTER_MASTER_KEY)).stream()
 				.collect(Collectors.toMap(TaxHeadMaster::getCode, TaxHeadMaster::getCategory));
 
@@ -210,14 +226,14 @@ public class EstimationService {
 			}
 		}
 		TaxHeadEstimate decimalEstimate = payService.roundOfDecimals(taxAmt.add(penalty), rebate.add(exemption));
-        if (null != decimalEstimate) {
+		if (null != decimalEstimate) {
 			decimalEstimate.setCategory(taxHeadCategoryMap.get(decimalEstimate.getTaxHeadCode()));
-            estimates.add(decimalEstimate);
-            if (decimalEstimate.getEstimateAmount().compareTo(BigDecimal.ZERO)>=0)
-                taxAmt = taxAmt.add(decimalEstimate.getEstimateAmount());
-            else
-                rebate = rebate.add(decimalEstimate.getEstimateAmount());
-        }
+			estimates.add(decimalEstimate);
+			if (decimalEstimate.getEstimateAmount().compareTo(BigDecimal.ZERO)>=0)
+				taxAmt = taxAmt.add(decimalEstimate.getEstimateAmount());
+			else
+				rebate = rebate.add(decimalEstimate.getEstimateAmount());
+		}
 
 		BigDecimal totalAmount = taxAmt.add(penalty).add(rebate).add(exemption);
 		// false in the argument represents that the demand shouldn't be updated from this call
@@ -245,31 +261,31 @@ public class EstimationService {
 				.build();
 	}
 
-    private List<TaxHeadEstimate> getTaxHeadEstimateForPayment(PropertyPayment propertyPayment) {
-        List<TaxHeadEstimate> result = new ArrayList<>();
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SEWER_TAX).estimateAmount(
-            propertyPayment.getSewerTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SURCHARGE_HOUSE_TAX).estimateAmount(
-            propertyPayment.getSurchareHouseTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SURCHARGE_WATER_TAX).estimateAmount(
-            propertyPayment.getSurchareWaterTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SURCHARGE_SEWER_TAX).estimateAmount(
-            propertyPayment.getSurchareSewerTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ARREAR_HOUSE_TAX).estimateAmount(
-            propertyPayment.getArrearHouseTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ARREAR_WATER_TAX).estimateAmount(
-            propertyPayment.getArrearWaterTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ARREAR_SEWER_TAX).estimateAmount(
-            propertyPayment.getArrearSewerTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_HOUSE_TAX).estimateAmount(
-            propertyPayment.getHouseTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_WATER_TAX).estimateAmount(
-            propertyPayment.getWaterTax()).build());
-        result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADVANCE_CARRYFORWARD).estimateAmount(
-            propertyPayment.getTotalPaidAmount()).build());
+	private List<TaxHeadEstimate> getTaxHeadEstimateForPayment(PropertyPayment propertyPayment) {
+		List<TaxHeadEstimate> result = new ArrayList<>();
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SEWER_TAX).estimateAmount(
+				propertyPayment.getSewerTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SURCHARGE_HOUSE_TAX).estimateAmount(
+				propertyPayment.getSurchareHouseTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SURCHARGE_WATER_TAX).estimateAmount(
+				propertyPayment.getSurchareWaterTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SURCHARGE_SEWER_TAX).estimateAmount(
+				propertyPayment.getSurchareSewerTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ARREAR_HOUSE_TAX).estimateAmount(
+				propertyPayment.getArrearHouseTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ARREAR_WATER_TAX).estimateAmount(
+				propertyPayment.getArrearWaterTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ARREAR_SEWER_TAX).estimateAmount(
+				propertyPayment.getArrearSewerTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_HOUSE_TAX).estimateAmount(
+				propertyPayment.getHouseTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_WATER_TAX).estimateAmount(
+				propertyPayment.getWaterTax()).build());
+		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADVANCE_CARRYFORWARD).estimateAmount(
+				propertyPayment.getTotalPaidAmount()).build());
 
-        return result;
-    }
+		return result;
+	}
 
 	/**
 	 * Returns the appropriate exemption object from the usage masters
@@ -714,5 +730,333 @@ public class EstimationService {
 		return ownerInfo;
 	}
 
+
+	private Optional<PropertyPayment> calculateAllTaxes(Property property , RequestInfo requestinfo )
+	{
+
+		BigDecimal totalARV = new BigDecimal(0);
+
+
+
+		Map<String, String> localityRebateMap = cachebaleservice.getLocalityRebateMap(property.getTenantId(), requestinfo);
+
+		Map<String, String> categoriesMap = cachebaleservice.getCategoriesMap(CATEGORY_TENANT_ID, requestinfo);
+
+
+		List<Unit> units =  property.getPropertyDetails().get(0).getUnits();
+
+		if(property.getPropertyDetails().get(0).getPropertyType().equalsIgnoreCase(VACANT))
+		{
+			totalARV = totalARV.add(calculateARVForVacantArea( property ,  localityRebateMap , categoriesMap  , totalARV));
+		}else {
+			for (Unit unit : units) {
+				totalARV = totalARV.add(calculateARVPer( property , unit , localityRebateMap , categoriesMap , true , totalARV));
+			} 
+		}
+
+		// Calculating tax using Ri
+
+		totalARV = totalARV.setScale(2, BigDecimal.ROUND_HALF_UP);
+
+		BigDecimal  totalSewarageTax = totalARV.multiply(TaxRateMultipliers.SEWARAGE_TAX_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
+		BigDecimal  totalWaterTax = totalARV.multiply(TaxRateMultipliers.WATER_TAX_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
+		BigDecimal  totalTax = totalARV.multiply(TaxRateMultipliers.TAX_RATE_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
+
+		System.out.println(" totalARV  "+totalARV);
+		System.out.println(" totalSewarageTax  "+totalSewarageTax);
+		System.out.println(" totalWaterTax  "+totalWaterTax);
+		System.out.println(" totalTax  "+totalTax);
+
+
+		PropertyPayment payment = new PropertyPayment();
+
+		payment.setId(UUID.randomUUID().toString());
+		payment.setPropertyId(property.getId());
+		payment.setFinancialYear(property.getPropertyDetails().get(0).getFinancialYear());
+		payment.setArrearHouseTax(new BigDecimal(0));
+		payment.setArrearWaterTax(new BigDecimal(0));
+		payment.setArrearSewerTax(new BigDecimal(0));
+		payment.setHouseTax(totalTax);
+		payment.setWaterTax(totalWaterTax);
+		payment.setSewerTax(totalSewarageTax);
+		payment.setSurchareHouseTax(new BigDecimal(0));
+		payment.setSurchareWaterTax(new BigDecimal(0));
+		payment.setSurchareSewerTax(new BigDecimal(0));
+		payment.setBillGeneratedTotal(new BigDecimal(0));
+		payment.setTotalPaidAmount(new BigDecimal(0));
+
+		payment.setLastPaymentDate("");
+		//payment = propertyPaymentRepository.save(payment);
+
+		Optional<PropertyPayment> opt = Optional.ofNullable(payment);
+		
+ 	    return  opt ;
+	}
+	private BigDecimal calculateARVForVacantArea(Property property ,Map<String, String> localityRebateMap ,Map<String, String> categoriesMap , BigDecimal totalARV)
+	{
+		BigDecimal baseRate = new BigDecimal(0);
+
+
+		if(!CalculatorUtils.isNullOrEmptyString(property.getAddress().getLocality().getCode()))
+		{
+			String localityJson = localityRebateMap.get(property.getAddress().getLocality().getCode().toLowerCase());
+
+			localityJson = localityJson.substring(1, localityJson.length()-1);
+
+			HashMap<String,String> localityMap = HashMapFrom(localityJson) ;
+
+			System.out.println("  localityMap "+localityMap.keySet().toString());
+
+			localityMap =  (HashMap<String, String>)localityMap.entrySet().parallelStream().collect(Collectors.toMap(entry -> entry.getKey().trim(), Map.Entry::getValue));
+
+			String roadWidthJson =  localityMap.get(property.getPropertyDetails().get(0).getRoadWidth().toString()).toString();
+
+
+			String constructionType =   getRoadWidthFromJson(roadWidthJson, ROADWIDTH_VACANT_LAND)  ;
+
+
+			if(!CalculatorUtils.isNullOrEmptyString(constructionType))
+			{
+				baseRate =  new BigDecimal(constructionType);
+			}
+		}
+
+		//Skipping MultiFactor because it is only for nonResidential
+		// int multiFactor  = getMultiFactor();
+
+		int nrB = 0;
+		int facilitiesRebate = getFacilitiesRebate(property , null );
+		BigDecimal openSpaceArea = new BigDecimal(property.getPropertyDetails().get(0).getLandArea());
+
+
+
+
+		totalARV = baseRate.multiply(openSpaceArea).multiply(new BigDecimal(100 - nrB - facilitiesRebate)).divide(new BigDecimal(100)).multiply(new BigDecimal(12));
+
+       return totalARV ;
+
+
+	}
+
+	private   HashMap HashMapFrom(String s){
+		HashMap base = new HashMap(); 
+		int dismiss = 0; 
+		StringBuilder tmpVal = new StringBuilder(); 
+		StringBuilder tmpKey = new StringBuilder(); 
+
+		for (String next:s.split("")){ 
+			if(dismiss==0){
+				if (next.equals("=")) 
+					dismiss=1; 
+				else
+					tmpKey.append(next); 
+			} else {
+				if (next.equals("{")) //if it's value so need to dismiss
+					dismiss++;
+				else if (next.equals("}")) 
+					dismiss--;
+				else if (next.equals(",")
+						&& dismiss==1) {
+					Object ObjVal = String.valueOf(tmpVal.toString()); 
+					base.put(tmpKey.toString(),ObjVal);
+					tmpKey = new StringBuilder();
+					tmpVal = new StringBuilder();
+					dismiss--;
+					continue; 
+				}
+				tmpVal.append(next); 
+			}
+		}
+		Object objVal = String.valueOf(tmpVal.toString());
+		base.put(tmpKey.toString(), objVal);
+		return base;
+	}
+
+	private BigDecimal calculateARVPer(Property property ,Unit unit ,Map<String, String> localityRebateMap ,Map<String, String> categoriesMap ,boolean isARV , BigDecimal totalARV)
+	{
+
+		BigDecimal rB = new BigDecimal(0);
+		BigDecimal nrB = new BigDecimal(0);
+		BigDecimal baseRate = getBaseRate( property , unit , localityRebateMap );
+		BigDecimal riArea = new BigDecimal(unit.getUnitArea());
+		BigDecimal multiFactor = new BigDecimal(0);
+		int facilitiesRebate = 0;
+
+		rB = getRebateResidential(unit, Integer.parseInt(property.getPropertyDetails().get(0).getConstructionYear()));
+		multiFactor = getMultiFactor(unit , categoriesMap);
+		nrB = getRebateNonResidential() ;
+		facilitiesRebate = getFacilitiesRebate(property , unit);
+
+		BigDecimal riArvData = new BigDecimal(0);
+
+		String type = unit.getUsageCategoryMajor();
+		if(!CalculatorUtils.isNullOrEmptyString(type) && (type.toUpperCase().equalsIgnoreCase(RESIDENTIAL)) )
+		{
+			riArvData = baseRate.multiply(riArea).multiply(((rB.add(new BigDecimal(100))).divide(new BigDecimal(100)))).multiply(new BigDecimal(12)).multiply(new BigDecimal(0.8));
+		}else
+		{
+			riArvData = baseRate.multiply(multiFactor).multiply(riArea).multiply(((new BigDecimal(100).subtract(nrB).add(new BigDecimal(facilitiesRebate))).divide(new BigDecimal(100)))).multiply(new BigDecimal(12));
+		}
+
+		if(isARV)
+		{
+			if(riArvData.doubleValue() != 0)
+			{
+				totalARV = totalARV.add(riArvData);
+			}
+		}
+
+		return totalARV ;
+
+	}
+
+
+	private int getFacilitiesRebate(Property property ,Unit unit )
+	{
+		String type = "" ;
+		if(unit != null)
+		{
+			type = unit.getUsageCategoryMajor();
+		}else
+			type = property.getPropertyDetails().get(0).getUsageCategoryMajor();
+		if (type.toUpperCase().contains(NONRESIDENTIAL)) {
+			if ( property.getPropertyDetails().get(0).getAdditionalDetails() != null &&  !property.getPropertyDetails().get(0).getAdditionalDetails().toString().isEmpty()) {
+				return 2;
+			} else {
+				return -2;
+			}
+		}
+		return 0;
+	}
+
+
+
+
+	private BigDecimal getRebateNonResidential()
+	{
+		return new BigDecimal(0);
+	}
+
+	public BigDecimal getMultiFactor(Unit unit ,Map<String, String> categoriesMap)
+	{
+		String type = unit.getUsageCategoryMajor();
+
+		if(type.toUpperCase().contains(NONRESIDENTIAL))
+		{
+			String category = unit.getCategory();
+
+			if(categoriesMap.containsKey(category.toLowerCase()))
+			{
+				String multipier = categoriesMap.get(category.toLowerCase());
+
+				return new BigDecimal(multipier);
+			}
+
+
+		}
+		return new BigDecimal(0);
+	}
+
+	public BigDecimal getRebateResidential(Unit unit , int constructionYear )
+	{
+		String type = unit.getUsageCategoryMajor();
+		int year = Year.now().getValue();
+		int difference = year - constructionYear;
+
+
+		boolean checkRented = false ;
+
+
+
+		if(unit.getOccupancyType().equalsIgnoreCase(RENTED))
+		{
+			checkRented = true ;
+		}
+
+		if( ( type.equalsIgnoreCase(RESIDENTIAL) || type.equalsIgnoreCase(MIX) ) )
+		{
+			if(difference <= 10)
+			{
+				if(checkRented)
+				{
+					return TaxExemption.RENTED_LT_10.getValue();
+				}
+				return TaxExemption.OWNED_LT_10.getValue();
+			}else if(difference >10 && difference <= 20)
+			{
+				if(checkRented)
+				{
+					return TaxExemption.RENTED_BET_10_20.getValue();
+				}
+				return TaxExemption.OWNED_BET_10_20.getValue();
+			}else if(difference > 20 )
+			{
+				if (checkRented) {
+					return TaxExemption.RENTED_GT_20.getValue();
+				}
+				return TaxExemption.OWNED_GT_20.getValue();
+			}
+		}
+
+
+
+		return new BigDecimal(0);
+	}
+
+
+	private  BigDecimal getBaseRate(Property property ,Unit unit ,Map<String, String> localityRebateMap )
+	{
+
+		if(!CalculatorUtils.isNullOrEmptyString(property.getAddress().getLocality().getCode()))
+		{
+			String localityJson = localityRebateMap.get(property.getAddress().getLocality().getCode().toLowerCase());
+
+			localityJson = localityJson.substring(1, localityJson.length()-1);
+
+			HashMap<String,String> localityMap = HashMapFrom(localityJson) ;
+
+			System.out.println("  localityMap "+localityMap.keySet().toString());
+
+
+
+			localityMap =  (HashMap<String, String>)localityMap.entrySet().parallelStream().collect(Collectors.toMap(entry -> entry.getKey().trim(), Map.Entry::getValue));
+
+
+			String roadWidthJson =  localityMap.get(property.getPropertyDetails().get(0).getRoadWidth().toString().trim()).toString();
+
+			String constructionType =  getRoadWidthFromJson(roadWidthJson , unit.getConstructionType().trim());
+
+
+			if(!CalculatorUtils.isNullOrEmptyString(constructionType))
+			{
+				return new BigDecimal(constructionType);
+			}else
+			{
+				return new BigDecimal(0);
+			}
+
+		}
+
+		return new BigDecimal(0);
+
+	}
+
+	private String getRoadWidthFromJson(String roadWidth , String type)
+	{
+		String multiplier = "" ;
+		roadWidth = roadWidth.substring(1, roadWidth.length()-1);
+		String[] parts = roadWidth.split(",");
+
+		for (String string : parts) {
+			if(string.trim().toLowerCase().contains(type))
+			{
+				multiplier  = string.trim().replace(type+"=", "") ;
+				System.out.println(string.trim().replace(type+"=", ""));
+			}
+
+		}
+
+		return multiplier ;
+	}
 
 }

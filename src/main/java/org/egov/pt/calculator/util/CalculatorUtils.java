@@ -780,5 +780,10 @@ public class CalculatorUtils {
         return addroles;
     }
 
+    public static boolean isNullOrEmptyString(String str) {
+        if(str != null && !str.isEmpty())
+            return false;
+        return true;
+    }
 
 }

@@ -39,6 +39,9 @@ public class Unit   {
 
         @JsonProperty("unitType")
         private String unitType;
+        
+        @JsonProperty("category")
+        private String category;
 
 //        @NotNull
         @JsonProperty("unitArea")

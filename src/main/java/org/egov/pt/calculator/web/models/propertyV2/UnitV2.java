@@ -42,6 +42,9 @@ public class UnitV2 {
 
 	@JsonProperty("occupancyType")
 	private String occupancyType;
+	
+	@JsonProperty("category")
+	private String category;
 
 	@JsonProperty("active")
 	private Boolean active;
