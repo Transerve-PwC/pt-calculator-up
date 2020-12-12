@@ -66,6 +66,12 @@ public class PropertyV2 extends PropertyInfoV2 {
 
 	@JsonProperty("channel")
 	private String channel;
+	
+	@JsonProperty("constructionYear")
+	private String constructionYear;
+	
+	@JsonProperty("roadWidth")
+	private String roadWidth;
 
 	@JsonProperty("documents")
 	@Valid
