@@ -921,7 +921,39 @@ public class EstimationService {
 			type = property.getPropertyDetails().get(0).getUsageCategoryMajor();
 		if (type.toUpperCase().contains(NONRESIDENTIAL)) {
 			if ( property.getPropertyDetails().get(0).getAdditionalDetails() != null &&  !property.getPropertyDetails().get(0).getAdditionalDetails().toString().isEmpty()) {
-				return 2;
+				
+				if(property.getPropertyDetails().get(0).getAdditionalDetails().toString().length() >2 )
+				{
+					String facilities = property.getPropertyDetails().get(0).getAdditionalDetails().toString();
+					facilities = facilities.substring(1, facilities.length()-1);
+					
+					
+			        Map<String, String> hMapData = new HashMap<String, String>();
+			        
+			        String parts[] = facilities.split(",");
+			        
+			        for(String part : parts){
+			            
+			            String facilitiesdata[] = part.split("=");
+			            
+			            String strId = facilitiesdata[0].trim();
+			            String strName = facilitiesdata[1].trim();
+			            
+			            hMapData.put(strId, strName);
+			        }
+					
+					String[] facilitiesArray = {"hasParking","hasOpenSpace","hasPlantation","hasPowerBackUp","hasSolarPanels","hasFireFighting","hasLiftFacility",
+							"isRainwaterHarvesting","hasAntiPollutionMeasures","hasSolidWasteManagementSystem"};
+					List facilitiesList = Arrays.asList(facilitiesArray);
+					boolean answer = facilitiesList.stream().anyMatch( facility ->  hMapData.containsKey(facility) && hMapData.get(facility).toString().equalsIgnoreCase("true")
+							);
+					
+					if(answer)
+					{
+						return 2;
+					}else
+						return -2;
+				}
 			} else {
 				return -2;
 			}
