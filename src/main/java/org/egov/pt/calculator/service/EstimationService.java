@@ -762,10 +762,10 @@ public class EstimationService {
 		BigDecimal  totalWaterTax = totalARV.multiply(TaxRateMultipliers.WATER_TAX_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
 		BigDecimal  totalTax = totalARV.multiply(TaxRateMultipliers.TAX_RATE_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
 
-		System.out.println(" totalARV  "+totalARV);
-		System.out.println(" totalSewarageTax  "+totalSewarageTax);
-		System.out.println(" totalWaterTax  "+totalWaterTax);
-		System.out.println(" totalTax  "+totalTax);
+		log.info(" totalARV  {}",totalARV);
+		log.info(" totalSewarageTax  {}",totalSewarageTax);
+		log.info(" totalWaterTax  {}",totalWaterTax);
+		log.info(" totalTax  {}",totalTax);
 
 
 		PropertyPayment payment = new PropertyPayment();
@@ -826,7 +826,7 @@ public class EstimationService {
 
 		int nrB = 0;
 		int facilitiesRebate = getFacilitiesRebate(property , null );
-		BigDecimal openSpaceArea = new BigDecimal(property.getPropertyDetails().get(0).getLandArea());
+		BigDecimal openSpaceArea = new BigDecimal(property.getPropertyDetails().get(0).getLandArea().toString());
 
 
 
@@ -878,7 +878,7 @@ public class EstimationService {
 		BigDecimal rB = new BigDecimal(0);
 		BigDecimal nrB = new BigDecimal(0);
 		BigDecimal baseRate = getBaseRate( property , unit , localityRebateMap );
-		BigDecimal riArea = new BigDecimal(unit.getUnitArea());
+		BigDecimal riArea = new BigDecimal(unit.getUnitArea().toString());
 		BigDecimal multiFactor = new BigDecimal(0);
 		int facilitiesRebate = 0;
 
@@ -892,7 +892,7 @@ public class EstimationService {
 		String type = unit.getUsageCategoryMajor();
 		if(!CalculatorUtils.isNullOrEmptyString(type) && (type.toUpperCase().equalsIgnoreCase(RESIDENTIAL)) )
 		{
-			riArvData = baseRate.multiply(riArea).multiply(((rB.add(new BigDecimal(100))).divide(new BigDecimal(100)))).multiply(new BigDecimal(12)).multiply(new BigDecimal(0.8));
+			riArvData = baseRate.multiply(riArea).multiply(((rB.add(new BigDecimal(100))).divide(new BigDecimal(100)))).multiply(new BigDecimal(12)).multiply(new BigDecimal("0.8"));
 		}else
 		{
 			riArvData = baseRate.multiply(multiFactor).multiply(riArea).multiply(((new BigDecimal(100).subtract(nrB).add(new BigDecimal(facilitiesRebate))).divide(new BigDecimal(100)))).multiply(new BigDecimal(12));
@@ -928,7 +928,7 @@ public class EstimationService {
 					facilities = facilities.substring(1, facilities.length()-1);
 					
 					
-			        Map<String, String> hMapData = new HashMap<String, String>();
+			        Map<String, String> facilitiesMapData = new HashMap<String, String>();
 			        
 			        String parts[] = facilities.split(",");
 			        
@@ -939,16 +939,16 @@ public class EstimationService {
 			            String strId = facilitiesdata[0].trim();
 			            String strName = facilitiesdata[1].trim();
 			            
-			            hMapData.put(strId, strName);
+			            facilitiesMapData.put(strId, strName);
 			        }
 					
 					String[] facilitiesArray = {"hasParking","hasOpenSpace","hasPlantation","hasPowerBackUp","hasSolarPanels","hasFireFighting","hasLiftFacility",
 							"isRainwaterHarvesting","hasAntiPollutionMeasures","hasSolidWasteManagementSystem"};
 					List facilitiesList = Arrays.asList(facilitiesArray);
-					boolean answer = facilitiesList.stream().anyMatch( facility ->  hMapData.containsKey(facility) && hMapData.get(facility).toString().equalsIgnoreCase("true")
+					boolean facilitiesPresent = facilitiesList.stream().anyMatch( facility ->  facilitiesMapData.containsKey(facility) && facilitiesMapData.get(facility).toString().equalsIgnoreCase("true")
 							);
 					
-					if(answer)
+					if(facilitiesPresent)
 					{
 						return 2;
 					}else
@@ -1047,7 +1047,7 @@ public class EstimationService {
 
 			HashMap<String,String> localityMap = HashMapFrom(localityJson) ;
 
-			System.out.println("  localityMap "+localityMap.keySet().toString());
+			log.info("  localityMap {} ",localityMap.keySet().toString());
 
 
 
