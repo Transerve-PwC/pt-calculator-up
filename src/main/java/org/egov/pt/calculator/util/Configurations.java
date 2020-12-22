@@ -132,9 +132,41 @@ public class Configurations {
 	@Value("${pt.mutation.exemption.taxhead}")
 	private String ptMutationExemptionTaxHead;
 
+	@Value("${egov.pt.tax.taxratemultiplier}")
+	private BigDecimal taxRateMultiplier;
+
+	@Value("${egov.pt.tax.seweragetaxmultiplier}")
+	private BigDecimal sewerageTaxMultiplier;
+
+	@Value("${egov.pt.tax.watertaxmultiplier}")
+	private BigDecimal waterTaxMultiplier;
+	
 	@Value("${pt.mutation.minpayable.amount}")
 	private BigDecimal ptMutationMinPayable;
 
+	@Value("${egov.pt.tax.exemption.owned.lessthan10}")
+	private BigDecimal taxExemptionOwnedLessThan10;
 
+	@Value("${egov.pt.tax.exemption.owned.between10and20}")
+	private BigDecimal taxExemptionOwnedBetween10and20;
+
+	@Value("${egov.pt.tax.exemption.owned.greaterthan20}")
+	private BigDecimal taxExemptionOwnedGreaterThan20;
+	
+	@Value("${egov.pt.tax.exemption.rented.lessthan10}")
+	private BigDecimal taxExemptionRentedLessThan10;
+
+	@Value("${egov.pt.tax.exemption.rented.between10and20}")
+	private BigDecimal taxExemptionRentedBetween10and20;
+
+	@Value("${egov.pt.tax.exemption.rented.greaterthan20}")
+	private BigDecimal taxExemptionRentedGreaterThan20;
+	
+	@Value("${egov.pt.nonresidential.facilities.present.rebate}")
+	private int nonResidentialFacilitiesPresentRebate;
+	
+	@Value("${egov.pt.nonresidential.facilities.notpresent.rebate}")
+	private int nonResidentialFacilitiesNotPresentRebate;
+	
 
 }

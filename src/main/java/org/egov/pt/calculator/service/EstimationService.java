@@ -6,8 +6,6 @@ import net.minidev.json.JSONArray;
 import org.egov.common.contract.request.RequestInfo;
 import org.egov.common.contract.request.User;
 import org.egov.common.contract.response.ResponseInfo;
-import org.egov.pt.calculator.enums.TaxExemption;
-import org.egov.pt.calculator.enums.TaxRateMultipliers;
 import org.egov.pt.calculator.model.PropertyPayment;
 import org.egov.pt.calculator.repository.PropertyPaymentRepository;
 import org.egov.pt.calculator.repository.Repository;
@@ -88,13 +86,13 @@ public class EstimationService {
 
 
 
-	private final String  ROADWIDTH_VACANT_LAND = "vacant_land" ;
-	private final String  VACANT =  "VACANT" ;
-	private final String CATEGORY_TENANT_ID = "up" ;
-	private final String  RESIDENTIAL    = "RESIDENTIAL" ;
-	private final String  NONRESIDENTIAL = "NONRESIDENTIAL" ;
-	private final String  MIX =  "MIX" ;
-	private final String  RENTED =  "Rented" ;
+	private static final String  ROADWIDTH_VACANT_LAND = "vacant_land" ;
+	private static final String  VACANT =  "VACANT" ;
+	private static final String  CATEGORY_TENANT_ID = "up" ;
+	private static final String  RESIDENTIAL    = "RESIDENTIAL" ;
+	private static final String  NONRESIDENTIAL = "NONRESIDENTIAL" ;
+	private static final String  MIX =  "MIX" ;
+	private static final String  RENTED =  "Rented" ;
 
 
 	@Value("${customization.pbfirecesslogic:false}")
@@ -758,9 +756,9 @@ public class EstimationService {
 
 		totalARV = totalARV.setScale(2, BigDecimal.ROUND_HALF_UP);
 
-		BigDecimal  totalSewarageTax = totalARV.multiply(TaxRateMultipliers.SEWARAGE_TAX_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
-		BigDecimal  totalWaterTax = totalARV.multiply(TaxRateMultipliers.WATER_TAX_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
-		BigDecimal  totalTax = totalARV.multiply(TaxRateMultipliers.TAX_RATE_MULTIPLIER.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
+		BigDecimal  totalSewarageTax = totalARV.multiply(configs.getSewerageTaxMultiplier()).setScale(2, BigDecimal.ROUND_HALF_UP);
+		BigDecimal  totalWaterTax = totalARV.multiply(configs.getWaterTaxMultiplier()).setScale(2, BigDecimal.ROUND_HALF_UP);
+		BigDecimal  totalTax = totalARV.multiply(configs.getTaxRateMultiplier()).setScale(2, BigDecimal.ROUND_HALF_UP);
 
 		log.info(" totalARV  {}",totalARV);
 		log.info(" totalSewarageTax  {}",totalSewarageTax);
@@ -794,6 +792,8 @@ public class EstimationService {
 	}
 	private BigDecimal calculateARVForVacantArea(Property property ,Map<String, String> localityRebateMap ,Map<String, String> categoriesMap , BigDecimal totalARV)
 	{
+		BigDecimal totalVacanatArv = new BigDecimal(0);
+		
 		BigDecimal baseRate = new BigDecimal(0);
 
 
@@ -831,9 +831,9 @@ public class EstimationService {
 
 
 
-		totalARV = baseRate.multiply(openSpaceArea).multiply(new BigDecimal(100 - nrB - facilitiesRebate)).divide(new BigDecimal(100)).multiply(new BigDecimal(12));
+		totalVacanatArv = baseRate.multiply(openSpaceArea).multiply(new BigDecimal(100 - nrB + facilitiesRebate)).divide(new BigDecimal(100)).multiply(new BigDecimal(12));
 
-       return totalARV ;
+       return totalVacanatArv ;
 
 
 	}
@@ -898,15 +898,9 @@ public class EstimationService {
 			riArvData = baseRate.multiply(multiFactor).multiply(riArea).multiply(((new BigDecimal(100).subtract(nrB).add(new BigDecimal(facilitiesRebate))).divide(new BigDecimal(100)))).multiply(new BigDecimal(12));
 		}
 
-		if(isARV)
-		{
-			if(riArvData.doubleValue() != 0)
-			{
-				totalARV = totalARV.add(riArvData);
-			}
-		}
 
-		return totalARV ;
+
+		return riArvData ;
 
 	}
 
@@ -950,12 +944,12 @@ public class EstimationService {
 					
 					if(facilitiesPresent)
 					{
-						return 2;
+						return configs.getNonResidentialFacilitiesPresentRebate();
 					}else
-						return -2;
+						return configs.getNonResidentialFacilitiesNotPresentRebate();
 				}
 			} else {
-				return -2;
+				return configs.getNonResidentialFacilitiesNotPresentRebate();
 			}
 		}
 		return 0;
@@ -1011,22 +1005,22 @@ public class EstimationService {
 			{
 				if(checkRented)
 				{
-					return TaxExemption.RENTED_LT_10.getValue();
+					return configs.getTaxExemptionRentedLessThan10();
 				}
-				return TaxExemption.OWNED_LT_10.getValue();
+				return configs.getTaxExemptionOwnedLessThan10();
 			}else if(difference >10 && difference <= 20)
 			{
 				if(checkRented)
 				{
-					return TaxExemption.RENTED_BET_10_20.getValue();
+					return configs.getTaxExemptionRentedBetween10and20();
 				}
-				return TaxExemption.OWNED_BET_10_20.getValue();
+				return configs.getTaxExemptionOwnedBetween10and20();
 			}else if(difference > 20 )
 			{
 				if (checkRented) {
-					return TaxExemption.RENTED_GT_20.getValue();
+					return configs.getTaxExemptionRentedGreaterThan20();
 				}
-				return TaxExemption.OWNED_GT_20.getValue();
+				return configs.getTaxExemptionOwnedGreaterThan20();
 			}
 		}
 
