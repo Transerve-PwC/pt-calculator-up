@@ -69,7 +69,7 @@ public class Cachebaleservice {
 	    		
 	            StringBuilder uri = new StringBuilder(mdmsHost).append(mdmsEndpoint);
 	            MdmsCriteriaReq criteriaReq = prepareMdMsRequest(tenantId, "egov-Location",
-	                    Arrays.asList(new String[] { "TenantBoundary" }), "$..[?(@.label=='locality')]", requestinfo);
+	                    Arrays.asList(new String[] { "TenantBoundary" }), "$..[?(@.label=='Locality')]", requestinfo);
 	            Object response = restRepo.fetchResult(uri, criteriaReq);
 	            List<Map<String, String>> boundaries = JsonPath.read(response,"$.MdmsRes.egov-location.TenantBoundary");
 	            
