@@ -3,6 +3,8 @@ package org.egov.pt.calculator.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONArray;
+
+import org.apache.commons.lang3.StringUtils;
 import org.egov.common.contract.request.RequestInfo;
 import org.egov.common.contract.request.User;
 import org.egov.common.contract.response.ResponseInfo;
@@ -15,6 +17,7 @@ import org.egov.pt.calculator.util.Configurations;
 import org.egov.pt.calculator.util.PBFirecessUtils;
 import org.egov.pt.calculator.validator.CalculationValidator;
 import org.egov.pt.calculator.web.models.*;
+import org.egov.pt.calculator.web.models.collections.Payment;
 import org.egov.pt.calculator.web.models.demand.*;
 import org.egov.pt.calculator.web.models.property.*;
 import org.egov.pt.calculator.web.models.propertyV2.PropertyV2;
@@ -180,7 +183,7 @@ public class EstimationService {
 
 		List<TaxHeadEstimate> estimates;
 		if (propertyPayment.isPresent()) {
-			estimates = getTaxHeadEstimateForPayment(propertyPayment.get());
+			estimates = getTaxHeadEstimateForPayment(propertyPayment.get(),masterMap,requestInfo,property);
 		} else {
 			estimates = new ArrayList<>();
 		}
@@ -259,7 +262,7 @@ public class EstimationService {
 				.build();
 	}
 
-	private List<TaxHeadEstimate> getTaxHeadEstimateForPayment(PropertyPayment propertyPayment) {
+	private List<TaxHeadEstimate> getTaxHeadEstimateForPayment(PropertyPayment propertyPayment ,Map<String,Object> masterMap,RequestInfo requestInfo,Property property) {
 		List<TaxHeadEstimate> result = new ArrayList<>();
 		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_SEWER_TAX).estimateAmount(
 				propertyPayment.getSewerTax()).build());
@@ -281,9 +284,142 @@ public class EstimationService {
 				propertyPayment.getWaterTax()).build());
 		result.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADVANCE_CARRYFORWARD).estimateAmount(
 				propertyPayment.getTotalPaidAmount()).build());
-
+		Map<String, Map<String, List<Object>>> propertyBasedExemptionMasterMap = new HashMap<>();
+		Map<String, JSONArray> timeBasedExemptionMasterMap = new HashMap<>();
+		mDataService.setPropertyMasterValues(requestInfo, property.getTenantId(), propertyBasedExemptionMasterMap,
+				timeBasedExemptionMasterMap);
+		
+		BigDecimal taxAmt = new BigDecimal(0);
+		for (TaxHeadEstimate taxHeadEstimate : result) {
+			if(!taxHeadEstimate.getTaxHeadCode().equalsIgnoreCase(PT_ADVANCE_CARRYFORWARD))
+			{
+			taxAmt = taxAmt.add(taxHeadEstimate.getEstimateAmount());
+			}else
+			{
+				taxAmt = taxAmt.subtract(taxHeadEstimate.getEstimateAmount());
+			}
+			
+		}
+		
+		System.out.println("===========Total Amount of tax is======="+taxAmt.toPlainString());
+		
+		 
+	 getEstimatesForTax(requestInfo,taxAmt,  property, propertyBasedExemptionMasterMap,
+			timeBasedExemptionMasterMap,masterMap,result);
+		
+		log.info("=====================  propertyBasedExemptionMasterMap   {}",propertyBasedExemptionMasterMap.toString());
+		
+		
+		
+		
 		return result;
 	}
+	
+	/**
+	 * Return an Estimate list containing all the required tax heads
+	 * mapped with respective amt to be paid.
+	 *
+	 * @param taxAmt tax amount for which rebate & penalty will be applied
+	 * @param usageExemption  total exemption value given for all unit usages
+	 * @param property proeprty  object
+
+	 * @param propertyBasedExemptionMasterMap property masters which contains exemption values associated with them
+	 * @param timeBasedExemeptionMasterMap masters with period based exemption values
+	 * @param masterMap
+	 */
+	private List<TaxHeadEstimate> getEstimatesForTax(RequestInfo requestInfo,BigDecimal taxAmt, Property property,
+			Map<String, Map<String, List<Object>>> propertyBasedExemptionMasterMap,
+			Map<String, JSONArray> timeBasedExemeptionMasterMap,Map<String, Object> masterMap,List<TaxHeadEstimate> estimates) {
+
+
+
+		PropertyDetail detail = property.getPropertyDetails().get(0);
+		BigDecimal payableTax = taxAmt;
+
+		//PropertyDetail detail = property.getPropertyDetails().get(0);
+		String assessmentYear = detail.getFinancialYear();
+		// taxes
+		estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_TAX).estimateAmount(taxAmt.setScale(2, 2)).build());
+
+//		// usage exemption
+//		 usageExemption = usageExemption.setScale(2, 2).negate();
+//		estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_UNIT_USAGE_EXEMPTION).estimateAmount(
+//		        usageExemption).build());
+//		payableTax = payableTax.add(usageExemption);
+//
+//		// owner exemption
+//		BigDecimal userExemption = getExemption(detail.getOwners(), payableTax, assessmentYear,
+//				propertyBasedExemptionMasterMap).setScale(2, 2).negate();
+//		estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_OWNER_EXEMPTION).estimateAmount(userExemption).build());
+//		payableTax = payableTax.add(userExemption);
+//
+//		// Fire cess
+//		List<Object> fireCessMasterList = timeBasedExemeptionMasterMap.get(CalculatorConstants.FIRE_CESS_MASTER);
+//		BigDecimal fireCess;
+//
+//		if (usePBFirecessLogic) {
+//			fireCess = firecessUtils.getPBFireCess(payableTax, assessmentYear, fireCessMasterList, detail);
+//			estimates.add(
+//					TaxHeadEstimate.builder().taxHeadCode(PT_FIRE_CESS).estimateAmount(fireCess.setScale(2, 2)).build());
+//		} else {
+//			fireCess = mDataService.getCess(payableTax, assessmentYear, fireCessMasterList);
+//			estimates.add(
+//					TaxHeadEstimate.builder().taxHeadCode(PT_FIRE_CESS).estimateAmount(fireCess.setScale(2, 2)).build());
+//
+//		}
+//
+//		// Cancer cess
+//		List<Object> cancerCessMasterList = timeBasedExemeptionMasterMap.get(CalculatorConstants.CANCER_CESS_MASTER);
+//		BigDecimal cancerCess = mDataService.getCess(payableTax, assessmentYear, cancerCessMasterList);
+//		estimates.add(
+//				TaxHeadEstimate.builder().taxHeadCode(PT_CANCER_CESS).estimateAmount(cancerCess.setScale(2, 2)).build());
+
+		Map<String, Map<String, Object>> financialYearMaster = (Map<String, Map<String, Object>>) masterMap.get(FINANCIALYEAR_MASTER_KEY);
+
+		Map<String, Object> finYearMap = financialYearMaster.get(assessmentYear);
+		Long fromDate = (Long) finYearMap.get(FINANCIAL_YEAR_STARTING_DATE);
+		Long toDate = (Long) finYearMap.get(FINANCIAL_YEAR_ENDING_DATE);
+
+		TaxPeriod taxPeriod = TaxPeriod.builder().fromDate(fromDate).toDate(toDate).build();
+
+
+		List<Payment> payments = new LinkedList<>();
+
+		if(!StringUtils.isEmpty(property.getPropertyId()) && !StringUtils.isEmpty(property.getTenantId())){
+			payments = paymentService.getPaymentsFromProperty(property, RequestInfoWrapper.builder().requestInfo(requestInfo).build());
+		}
+
+
+		// get applicable rebate and penalty
+		Map<String, BigDecimal> rebatePenaltyMap = payService.applyPenaltyRebateAndInterest(payableTax, BigDecimal.ZERO,
+				 assessmentYear, timeBasedExemeptionMasterMap,payments,taxPeriod);
+
+		if (null != rebatePenaltyMap) {
+
+			BigDecimal rebate = rebatePenaltyMap.get(PT_TIME_REBATE);
+			BigDecimal penalty = rebatePenaltyMap.get(PT_TIME_PENALTY);
+			BigDecimal interest = rebatePenaltyMap.get(PT_TIME_INTEREST);
+			estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_TIME_REBATE).estimateAmount(rebate).build());
+			estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_TIME_PENALTY).estimateAmount(penalty).build());
+			estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_TIME_INTEREST).estimateAmount(interest).build());
+			payableTax = payableTax.add(rebate).add(penalty).add(interest);
+		}
+
+//		// AdHoc Values (additional rebate or penalty manually entered by the employee)
+//		if (null != detail.getAdhocPenalty())
+//			estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_PENALTY)
+//					.estimateAmount(detail.getAdhocPenalty()).build());
+//
+//		if (null != detail.getAdhocExemption() && detail.getAdhocExemption().compareTo(payableTax.add(fireCess)) <= 0) {
+//			estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_REBATE)
+//					.estimateAmount(detail.getAdhocExemption().negate()).build());
+//		}
+//		else if (null != detail.getAdhocExemption()) {
+//			throw new CustomException(PT_ADHOC_REBATE_INVALID_AMOUNT, PT_ADHOC_REBATE_INVALID_AMOUNT_MSG + taxAmt);
+//		}
+		return estimates;
+	}
+	
 
 	/**
 	 * Returns the appropriate exemption object from the usage masters
