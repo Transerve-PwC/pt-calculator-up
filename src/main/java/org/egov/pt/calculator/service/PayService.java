@@ -88,11 +88,11 @@ public class PayService {
 
 		if (null == rebate) return rebateAmt;
 
-		String[] time = ((String) rebate.get(CalculatorConstants.ENDING_DATE_APPLICABLES)).split("/");
+		String[] time = ((String) rebate.get(CalculatorConstants.STARTING_DATE_APPLICABLES)).split("/");
 		Calendar cal = Calendar.getInstance();
-		setDateToCalendar(assessmentYear, time, cal);
+		setDateToCalendar( time, cal);
 
-		if (cal.getTimeInMillis() > System.currentTimeMillis())
+		if (cal.getTimeInMillis() < System.currentTimeMillis())
 			rebateAmt = mDService.calculateApplicables(taxAmt, rebate);
 
 		return rebateAmt;
